@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+
+import curses
+import math
+from matrix import Matrix
+from rational import Rational
+
+def drawMatrix(x,y,maxy,matrix,scr):
+    rows = matrix.getRows()
+    cols = matrix.getCols()
+    mat = matrix.getMatrix()
+    offset = (maxy - rows - 2) // 2
+
+    lotSize = 0
+    if rows > 0 and cols > 0:
+        lotSize = max([max([len(str(i)) for i in row]) for row in mat])
+
+    scr.addstr(y+offset,x,'┌' + ' ' * (cols*(1 + lotSize) + 1) + '┐')
+    for j in range(rows):
+        scr.addstr(y+offset+j+1,x,"│ " + ' '.join([str(i) for i in mat[j]]) + " │")
+    scr.addstr(y+offset+rows+1,x,'└' + ' ' * (cols*(1 + lotSize) + 1) + '┘')
+
+    return 3 + cols*(1 + lotSize)
+
+def moveCursor(mats,matChoice,colnum,rownum,maxy,scr):
+    x = 0
+    y = 1 + rownum + (maxy - mats[matChoice].getRows() - 2) // 2
+    for m in range(matChoice):
+        x += 3 + mats[m].getCols()*(1 + max([max([len(str(i)) for i in row]) for row in mats[m].getMatrix()]))
+    x += (1 + colnum) * (1 + max([max([len(str(i)) for i in row]) for row in mats[matChoice].getMatrix()]))
+    scr.addstr(y,x,'')
+    return
+
+def main():
+    #Init curses
+    stdscr = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    stdscr.keypad(1)
+
+    #starting state
+    pos = [0, 0, 0] # Matrix, column, row
+    state = [Matrix(), Matrix()]
+    state[0].setRows(2)
+    state[0].setCols(2)
+    state[0].setValue(0,0,Rational(1,1))
+    state[0].setValue(0,1,Rational(0,1))
+    state[0].setValue(1,0,Rational(0,1))
+    state[0].setValue(1,1,Rational(1,1))
+    state[1].setRows(2)
+    state[1].setCols(2)
+    state[1].setValue(0,0,Rational(1,1))
+    state[1].setValue(0,0,Rational(0,1))
+    state[1].setValue(1,1,Rational(0,1))
+    state[1].setValue(1,1,Rational(1,1))
+
+    #Draw state
+    c = None
+    while c != ord('q'):
+        if c == ord('b'):
+            pos[0] = (pos[0] - 1) % len(state)
+            pos[1] = 0
+            pos[2] = 0
+            # pos[1] = min(state[pos[0]].getCols(), pos[1])
+            # pos[2] = min(state[pos[0]].getRows(), pos[2])
+        elif c == ord('w'):
+            pos[0] = (pos[0] + 1) % len(state)
+            pos[1] = 0
+            pos[2] = 0
+            # pos[1] = min(state[pos[0]].getCols(), pos[1])
+            # pos[2] = min(state[pos[0]].getRows(), pos[2])
+        elif c == ord('h'):
+            pos[1] = (pos[1] - 1) % state[pos[0]].getCols()
+        elif c == ord('j'):
+            pos[2] = (pos[2] + 1) % state[pos[0]].getRows()
+        elif c == ord('k'):
+            pos[2] = (pos[2] - 1) % state[pos[0]].getRows()
+        elif c == ord('l'):
+            pos[1] = (pos[1] + 1) % state[pos[0]].getCols()
+        elif c == ord('H'):
+            state[pos[0]].setCols(state[pos[0]].getCols() - 1)
+        elif c == ord('J'):
+            state[pos[0]].setRows(state[pos[0]].getRows() + 1)
+        elif c == ord('K'):
+            state[pos[0]].setRows(state[pos[0]].getRows() - 1)
+        elif c == ord('L'):
+            state[pos[0]].setCols(state[pos[0]].getCols() + 1)
+        elif c == ord('c'):
+            mul = 1
+            num = 0
+            den = 1
+            n = stdscr.getch()
+            if n == ord('-'):
+                mul = -1
+                n = stdscr.getch()
+            elif n == ord('+'):
+                mul = 1
+                n = stdscr.getch()
+            while ord('0') <= n <= ord('9'):
+                num = 10 * num + n - ord('0')
+                n = stdscr.getch()
+            if n == ord('/') or n == ord('\\'):
+                den = 0
+                n = stdscr.getch()
+                while ord('0') <= n <= ord('9'):
+                    den = 10 * den + n - ord('0')
+                    n = stdscr.getch()
+            if n == ord('\n'):
+                state[pos[0]].setValue(pos[1],pos[2],Rational(mul*num,den))
+        elif c == ord('+'):
+            state += [Matrix()]
+            state[-1].setRows(1)
+            state[-1].setCols(1)
+        elif c == ord('-'):
+            if len(state) > 2:
+                state.pop()
+        stdscr.clear()
+        height = max(map(lambda x: x.getRows(), state)) + 2
+        nextDraw = 0
+        for i in range(len(state)):
+            nextDraw += drawMatrix(nextDraw,0,height,state[i],stdscr)
+        stdscr.addstr(height//2, nextDraw, " = ")
+        drawMatrix(nextDraw+3,0,height,state[0]*state[1],stdscr)
+        moveCursor(state,*pos,height,stdscr)
+        stdscr.refresh()
+        c = stdscr.getch()
+
+    #clean up
+    curses.endwin()
+    return
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,5 @@
+* FEATURES
+** make it work with rational numbers instead of floats
+* BUGS
+** lingering display of numbers when resizing matrices
+** crash when adding to many matrices

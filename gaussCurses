@@ -2,31 +2,30 @@
 
 import curses
 import math
-from matrix import Matrix
+from matrix import *
+from fractions import Fraction
 
-def drawMatrix(x,y,maxy,matrix,scr):
-    rows = matrix.getRows()
-    cols = matrix.getCols()
-    mat = matrix.getMatrix()
-    offset = (maxy - rows - 2) // 2
+def drawMatrix(x,y,matrix,scr):
+    scr.addstr(y,x,str(matrix))
+    return
 
-    lotSize = 0
-    if rows > 0 and cols > 0:
-        lotSize = max([max([len(format(i, ".2f")) for i in row]) for row in mat])
-
-    scr.addstr(y+offset,x,'┌' + ' ' * (cols*(1 + lotSize) + 1) + '┐')
-    for j in range(rows):
-        scr.addstr(y+offset+j+1,x,"│ " + ' '.join([format(i, ">" + str(lotSize) + ".2f") for i in mat[j]]) + " │")
-    scr.addstr(y+offset+rows+1,x,'└' + ' ' * (cols*(1 + lotSize) + 1) + '┘')
-
-    return 3 + cols*(1 + lotSize)
+def mergeMultilines(mls):
+    maxLines = max([len(ml.split('\n')) for ml in mls])
+    paddedMls = mls[:]
+    for i in range(len(paddedMls)):
+        mlWidth = len(paddedMls[i].split('\n')[0])
+        mlHeight = len(paddedMls[i].split('\n'))
+        paddedMls[i] = (' ' * mlWidth + '\n') * ((maxLines - mlHeight + 1) // 2) + paddedMls[i]
+        paddedMls[i] += ('\n' + ' ' * mlWidth) * ((maxLines - mlHeight) // 2)
+    lines = [''.join([ml.split('\n')[i] for ml in paddedMls]) for i in range(maxLines)]
+    return '\n'.join(lines)
 
 def moveCursor(mats,matChoice,colnum,rownum,maxy,scr):
     x = 0
     y = 1 + rownum + (maxy - mats[matChoice].getRows() - 2) // 2
     for m in range(matChoice):
-        x += 3 + mats[m].getCols()*(1 + max([max([len(format(i, ".2f")) for i in row]) for row in mats[m].getMatrix()]))
-    x += (1 + colnum) * (1 + max([max([len(format(i, ".2f")) for i in row]) for row in mats[matChoice].getMatrix()]))
+        x += 3 + mats[m].getCols()*(1 + max([max([len(str(i)) for i in row]) for row in mats[m].getMatrix()]))
+    x += (1 + colnum) * (1 + max([max([len(str(i)) for i in row]) for row in mats[matChoice].getMatrix()]))
     scr.addstr(y,x,'')
     return
 
@@ -39,21 +38,11 @@ def main():
 
     #starting state
     pos = [0, 0, 0] # Matrix, column, row
-    state = [Matrix(), Matrix()]
-    state[0].setRows(2)
-    state[0].setCols(2)
-    state[0].setValue(0,0,1)
-    state[0].setValue(1,1,1)
-    state[1].setRows(2)
-    state[1].setCols(2)
-    state[1].setValue(0,0,1)
-    state[1].setValue(1,1,1)
+    state = [identity(2,Fraction(1,1),Fraction(0,1)),identity(2,Fraction(1,1),Fraction(0,1))]
 
-    #input
+    #Draw state
     c = None
     while c != ord('q'):
-
-        #move to another matrix
         if c == ord('b'):
             pos[0] = (pos[0] - 1) % len(state)
             pos[1] = 0
@@ -62,8 +51,6 @@ def main():
             pos[0] = (pos[0] + 1) % len(state)
             pos[1] = 0
             pos[2] = 0
-
-        #move around inside matrix
         elif c == ord('h'):
             pos[1] = (pos[1] - 1) % state[pos[0]].getCols()
         elif c == ord('j'):
@@ -72,8 +59,6 @@ def main():
             pos[2] = (pos[2] - 1) % state[pos[0]].getRows()
         elif c == ord('l'):
             pos[1] = (pos[1] + 1) % state[pos[0]].getCols()
-
-        #change dim's of matrix
         elif c == ord('H'):
             if state[pos[0]].getCols() > 1:
                 state[pos[0]].setCols(state[pos[0]].getCols() - 1)
@@ -84,11 +69,10 @@ def main():
                 state[pos[0]].setRows(state[pos[0]].getRows() - 1)
         elif c == ord('L'):
             state[pos[0]].setCols(state[pos[0]].getCols() + 1)
-
-        #change value of current pos
         elif c == ord('c'):
-            val = 0
             mul = 1
+            num = 0
+            den = 1
             n = stdscr.getch()
             if n == ord('-'):
                 mul = -1
@@ -96,46 +80,33 @@ def main():
             elif n == ord('+'):
                 mul = 1
                 n = stdscr.getch()
-            if ord('0') <= n <= ord('9'):
-                while ord('0') <= n <= ord('9'):
-                    val = 10 * val + n - ord('0')
-                    n = stdscr.getch()
-            if n == ord('.'):
+            while ord('0') <= n <= ord('9'):
+                num = 10 * num + n - ord('0')
+                n = stdscr.getch()
+            if n == ord('/') or n == ord('\\'):
+                den = 0
                 n = stdscr.getch()
                 while ord('0') <= n <= ord('9'):
-                    val = 10 * val + n - ord('0')
-                    mul /= 10
+                    den = 10 * den + n - ord('0')
                     n = stdscr.getch()
-            val *= mul
             if n == ord('\n'):
-                state[pos[0]].setValue(pos[1],pos[2],val)
-
-        #change amount of matrices
+                state[pos[0]].setValue(pos[1],pos[2],Fraction(mul*num,den))
         elif c == ord('+'):
-            state = [Matrix()] + state
-            state[0].setRows(1)
-            state[0].setCols(1)
+            state = [identity(2,Fraction(1,1),Fraction(0,1))] + state
         elif c == ord('-'):
             if len(state) > 2:
                 state.pop(0)
-
-        #condense two matrices to their product
         elif c == ord('*'):
-            if len(state) > 2:
-                state[pos[0]+1] = state[pos[0]] * state[pos[0]+1]
+            if len(state) > 2 and pos[0] < len(state) - 1:
+                state[pos[0] + 1] = state[pos[0]] * state[pos[0] + 1]
                 state.pop(pos[0])
-
-        #draw
         stdscr.clear()
-        height = max(map(lambda x: x.getRows(), state)) + 2
-        nextDraw = 0
-        for i in range(len(state)):
-            nextDraw += drawMatrix(nextDraw,0,height,state[i],stdscr)
-        stdscr.addstr(height//2, nextDraw, " = ")
-        matrixOut = state[0]
+        product = state[0]
         for mat in state[1:]:
-            matrixOut = matrixOut * mat
-        drawMatrix(nextDraw+3,0,height,matrixOut,stdscr)
+            product = product * mat
+        output = mergeMultilines([*[str(mat) for mat in state], " = ", str(product)])
+        stdscr.addstr(0,0,output)
+        height = max(map(lambda x: x.getRows(), state)) + 2
         moveCursor(state,*pos,height,stdscr)
         stdscr.refresh()
         c = stdscr.getch()

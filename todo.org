@@ -1,5 +1,16 @@
+vim: foldlevel=9999
 * FEATURES
-** make it work with rational numbers instead of floats
+** DONE make it work with rational numbers instead of floats
+** TODO add basic symbolic manipulation
+** TODO do something clever with incompatible matrices
 * BUGS
-** lingering display of numbers when resizing matrices
-** crash when adding to many matrices
+** DONE lingering display of numbers when resizing matrices
+** DONE crash when adding to many matrices
+** TODO display corrupts when adding matrices that would go off screen
+** TODO cursor stays where it is when resizing matrix
+** TODO rewrite moveCursor to take into account changes in drawing routine
+* OTHER
+** TODO make it more readable
+  - [ ] replace one-liners
+  - [ ] comment more
+** TODO Remove ~ files and pycache from repository
